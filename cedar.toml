@@ -11,7 +11,7 @@
 [web]
   title = "Cedar App"
   port = 8910
-  apiUrl = "/.redwood/functions"
+  apiUrl = "/api"
   includeEnvironmentVariables = [
     "TURNSTILE_SITE_KEY",
     "STRIPE_PUBLISHABLE_KEY",
