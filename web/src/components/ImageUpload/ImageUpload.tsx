@@ -18,7 +18,7 @@ const ImageUpload = ({ value, onChange }: ImageUploadProps) => {
     setUploading(true)
     try {
       const res = await fetch(
-        `/.redwood/functions/uploadImage?filename=${encodeURIComponent(file.name)}`,
+        `/api/uploadImage?filename=${encodeURIComponent(file.name)}`,
         {
           method: 'POST',
           headers: { 'Content-Type': file.type },
