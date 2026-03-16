@@ -1,11 +1,5 @@
-// Don't forget to tell Prisma about your edits to this file using
-// `yarn cedar prisma migrate dev` or `yarn cedar prisma db push`.
-// `migrate` is like committing while `push` is for prototyping.
-// Read more about both here:
-// https://www.prisma.io/docs/orm/prisma-migrate
-
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -14,11 +8,92 @@ generator client {
   binaryTargets = "native"
 }
 
-// Define your own datamodels here and run `yarn cedar prisma migrate dev`
-// to create migrations for them and apply to your dev DB.
-// TODO: Please remove the following example:
-model UserExample {
-  id    Int     @id @default(autoincrement())
-  email String  @unique
-  name  String?
+model ContactMessage {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String
+  message   String
+  createdAt DateTime @default(now())
+}
+
+model Product {
+  id                Int                @id @default(autoincrement())
+  name              String
+  slug              String             @unique
+  description       String
+  price             Int
+  imageUrl          String
+  category          String
+  sizes             String             @default("[]")
+  stripePrice       String?
+  shippingSurcharge Int                @default(0)
+  active            Boolean            @default(true)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  orderItems        OrderItem[]
+  attributes        ProductAttribute[]
+  variants          ProductVariant[]
+}
+
+model ProductAttribute {
+  id        Int     @id @default(autoincrement())
+  productId Int
+  name      String
+  values    String  @default("[]")
+  position  Int     @default(0)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model ProductVariant {
+  id        Int     @id @default(autoincrement())
+  productId Int
+  options   String  @default("{}")
+  sku       String?
+  price     Int?
+  stock     Int     @default(0)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model Order {
+  id               Int         @id @default(autoincrement())
+  stripeSessionId  String      @unique
+  customerName     String      @default("")
+  customerEmail    String
+  status           String      @default("pending")
+  totalAmount      Int
+  shippingAddress  String?
+  trackingNumber   String?
+  refundedAt       DateTime?
+  notes            String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  items            OrderItem[]
+}
+
+model OrderItem {
+  id        Int     @id @default(autoincrement())
+  orderId   Int
+  productId Int
+  quantity  Int
+  size      String?
+  price     Int
+  order     Order   @relation(fields: [orderId], references: [id])
+  product   Product @relation(fields: [productId], references: [id])
+}
+
+model SiteSetting {
+  key   String @id
+  value String
+}
+
+model User {
+  id                  String    @id @default(uuid())
+  email               String    @unique
+  hashedPassword      String
+  salt                String
+  resetToken          String?
+  resetTokenExpiresAt DateTime?
+  roles               String    @default("user")
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 }
