@@ -76,28 +76,49 @@ const Success = ({ adminStats: stats }: CellSuccessProps) => (
         {stats.recentOrders.length === 0 ? (
           <p className="py-4 text-sm text-white/40">No orders yet.</p>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Order</TableHead>
-                <TableHead>Customer</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          <>
+            {/* Desktop table */}
+            <div className="hidden md:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Order</TableHead>
+                    <TableHead>Customer</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {stats.recentOrders.map((order) => (
+                    <TableRow key={order.id}>
+                      <TableCell className="font-medium text-white">#{order.id}</TableCell>
+                      <TableCell>{order.customerEmail || 'N/A'}</TableCell>
+                      <TableCell>
+                        <Badge variant={statusVariant(order.status)}>{order.status}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right">${(order.totalAmount / 100).toFixed(2)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Mobile list */}
+            <div className="space-y-2 md:hidden">
               {stats.recentOrders.map((order) => (
-                <TableRow key={order.id}>
-                  <TableCell className="font-medium text-white">#{order.id}</TableCell>
-                  <TableCell>{order.customerEmail || 'N/A'}</TableCell>
-                  <TableCell>
-                    <Badge variant={statusVariant(order.status)}>{order.status}</Badge>
-                  </TableCell>
-                  <TableCell className="text-right">${(order.totalAmount / 100).toFixed(2)}</TableCell>
-                </TableRow>
+                <div key={order.id} className="flex items-center justify-between rounded-lg border border-white/5 px-3 py-2.5">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-white">#{order.id}</span>
+                      <Badge variant={statusVariant(order.status)} className="text-[10px]">{order.status}</Badge>
+                    </div>
+                    <p className="truncate text-xs text-white/40">{order.customerEmail || 'N/A'}</p>
+                  </div>
+                  <span className="flex-shrink-0 font-heading font-bold text-white">${(order.totalAmount / 100).toFixed(2)}</span>
+                </div>
               ))}
-            </TableBody>
-          </Table>
+            </div>
+          </>
         )}
       </CardContent>
     </Card>

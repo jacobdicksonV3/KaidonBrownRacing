@@ -64,38 +64,64 @@ const Success = ({ adminContactMessages: messages }: CellSuccessProps) => {
   }
 
   return (
-    <Card>
-      <CardContent className="p-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Message</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {messages.map((msg) => (
-              <TableRow key={msg.id}>
-                <TableCell className="font-medium text-white">{msg.name}</TableCell>
-                <TableCell>{msg.email}</TableCell>
-                <TableCell className="max-w-xs truncate">{msg.message}</TableCell>
-                <TableCell className="text-white/40">
-                  {new Date(msg.createdAt).toLocaleDateString()}
-                </TableCell>
-                <TableCell className="text-right">
-                  <Button variant="ghost" size="icon" onClick={() => handleDelete(msg.id)}>
-                    <Trash2 className="h-4 w-4 text-red-400" />
-                  </Button>
-                </TableCell>
+    <>
+      {/* Desktop table */}
+      <Card className="hidden md:block">
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Message</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+            </TableHeader>
+            <TableBody>
+              {messages.map((msg) => (
+                <TableRow key={msg.id}>
+                  <TableCell className="font-medium text-white">{msg.name}</TableCell>
+                  <TableCell>{msg.email}</TableCell>
+                  <TableCell className="max-w-xs truncate">{msg.message}</TableCell>
+                  <TableCell className="text-white/40">
+                    {new Date(msg.createdAt).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="ghost" size="icon" onClick={() => handleDelete(msg.id)}>
+                      <Trash2 className="h-4 w-4 text-red-400" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Mobile cards */}
+      <div className="space-y-3 md:hidden">
+        {messages.map((msg) => (
+          <Card key={msg.id}>
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-white">{msg.name}</p>
+                  <p className="text-xs text-white/40">{msg.email}</p>
+                </div>
+                <div className="flex flex-shrink-0 items-center gap-2">
+                  <span className="text-xs text-white/30">{new Date(msg.createdAt).toLocaleDateString()}</span>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDelete(msg.id)}>
+                    <Trash2 className="h-3.5 w-3.5 text-red-400" />
+                  </Button>
+                </div>
+              </div>
+              <p className="mt-2 text-sm text-white/60">{msg.message}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </>
   )
 }
 
