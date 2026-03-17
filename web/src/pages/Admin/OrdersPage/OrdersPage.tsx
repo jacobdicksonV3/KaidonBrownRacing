@@ -40,7 +40,7 @@ const statusConfig: Record<string, { variant: 'success' | 'warning' | 'destructi
   cancelled: { variant: 'destructive', label: 'Cancelled' },
 }
 
-const statuses = ['all', 'pending', 'paid', 'shipped', 'refunded', 'cancelled'] as const
+const statuses = ['all', 'paid', 'shipped', 'refunded', 'cancelled'] as const
 
 const Loading = () => (
   <div className="space-y-3">

@@ -11,7 +11,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 export const createCheckoutSession: MutationResolvers['createCheckoutSession'] = async ({
   input,
 }) => {
-  const { items, shippingAddress } = input
+  const { items, shippingAddress, customerEmail, customerPhone } = input
   const productIds = items.map((i) => i.productId)
   const products = await db.product.findMany({
     where: { id: { in: productIds } },
@@ -78,6 +78,8 @@ export const createCheckoutSession: MutationResolvers['createCheckoutSession'] =
     payment_method_types: ['card'],
     line_items: lineItems,
     mode: 'payment',
+    customer_email: customerEmail,
+    phone_number_collection: { enabled: false },
     success_url: `${webUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${webUrl}/cart`,
   })
@@ -86,7 +88,8 @@ export const createCheckoutSession: MutationResolvers['createCheckoutSession'] =
     data: {
       stripeSessionId: session.id,
       customerName: shippingAddress.name,
-      customerEmail: '',
+      customerEmail,
+      customerPhone: customerPhone || '',
       status: 'pending',
       totalAmount,
       shippingAddress: JSON.stringify({

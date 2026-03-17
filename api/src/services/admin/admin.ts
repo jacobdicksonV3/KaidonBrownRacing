@@ -10,13 +10,16 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 })
 
 export const adminStats: QueryResolvers['adminStats'] = async () => {
+  const paidFilter = { status: { not: 'pending' } }
+
   const [totalOrders, totalRevenue, totalProducts, totalMessages, recentOrders] =
     await Promise.all([
-      db.order.count(),
-      db.order.aggregate({ _sum: { totalAmount: true } }),
+      db.order.count({ where: paidFilter }),
+      db.order.aggregate({ where: paidFilter, _sum: { totalAmount: true } }),
       db.product.count(),
       db.contactMessage.count(),
       db.order.findMany({
+        where: paidFilter,
         take: 5,
         orderBy: { createdAt: 'desc' },
         include: { items: { include: { product: true } } },
@@ -34,6 +37,7 @@ export const adminStats: QueryResolvers['adminStats'] = async () => {
 
 export const adminOrders: QueryResolvers['adminOrders'] = () => {
   return db.order.findMany({
+    where: { status: { not: 'pending' } },
     orderBy: { createdAt: 'desc' },
     include: { items: { include: { product: true } } },
   })
@@ -49,14 +53,14 @@ export const adminOrder: QueryResolvers['adminOrder'] = ({ id }) => {
 export const adminProducts: QueryResolvers['adminProducts'] = () => {
   return db.product.findMany({
     orderBy: { createdAt: 'desc' },
-    include: { attributes: { orderBy: { position: 'asc' } }, variants: true },
+    include: { attributes: { orderBy: { position: 'asc' } }, variants: true, images: { orderBy: { position: 'asc' } } },
   })
 }
 
 export const adminProduct: QueryResolvers['adminProduct'] = ({ id }) => {
   return db.product.findUnique({
     where: { id },
-    include: { attributes: { orderBy: { position: 'asc' } }, variants: true },
+    include: { attributes: { orderBy: { position: 'asc' } }, variants: true, images: { orderBy: { position: 'asc' } } },
   })
 }
 

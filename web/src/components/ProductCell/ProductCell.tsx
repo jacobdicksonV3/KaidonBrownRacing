@@ -29,6 +29,12 @@ export const QUERY = gql`
         price
         stock
       }
+      images {
+        id
+        url
+        position
+        attributeValue
+      }
     }
   }
 `
@@ -78,6 +84,15 @@ export const Success = ({ product }: CellSuccessProps<FindProductQuery, FindProd
   }))
   const hasVariants = parsedVariants.length > 0
 
+  // Build all images array (main + additional)
+  const allImages = [
+    { url: product.imageUrl, attributeValue: null as string | null },
+    ...(product.images || []).map((img) => ({
+      url: img.url,
+      attributeValue: img.attributeValue || null,
+    })),
+  ]
+
   // Track selected value per attribute
   const [selections, setSelections] = useState<Record<string, string>>(() => {
     if (!hasVariants || attrs.length === 0) return {}
@@ -85,6 +100,7 @@ export const Success = ({ product }: CellSuccessProps<FindProductQuery, FindProd
     return parsedVariants[0]?.parsedOptions || {}
   })
   const [qty, setQty] = useState(1)
+  const [activeImageIdx, setActiveImageIdx] = useState(0)
 
   // Find matching variant for current selections
   const selectedVariant = parsedVariants.find((v) =>
@@ -98,6 +114,9 @@ export const Success = ({ product }: CellSuccessProps<FindProductQuery, FindProd
   const handleSelect = (attrName: string, value: string) => {
     setSelections((prev) => ({ ...prev, [attrName]: value }))
     setQty(1)
+    // Auto-switch to attribute-linked image if one exists
+    const linkedIdx = allImages.findIndex((img) => img.attributeValue === value)
+    if (linkedIdx >= 0) setActiveImageIdx(linkedIdx)
   }
 
   // Check if a specific option value is available (has any variant in stock with that value)
@@ -128,12 +147,36 @@ export const Success = ({ product }: CellSuccessProps<FindProductQuery, FindProd
       <Toaster />
       <div className="mx-auto max-w-5xl px-4 py-8 md:py-12">
         <div className="grid gap-6 md:grid-cols-2 md:gap-8">
-          <div className="overflow-hidden rounded-lg">
-            <img
-              src={product.imageUrl}
-              alt={product.name}
-              className="w-full object-cover"
-            />
+          <div>
+            <div className="overflow-hidden rounded-lg">
+              <img
+                src={allImages[activeImageIdx]?.url || product.imageUrl}
+                alt={product.name}
+                className="w-full object-cover"
+              />
+            </div>
+            {allImages.length > 1 && (
+              <div className="mt-3 flex gap-2 overflow-x-auto">
+                {allImages.map((img, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setActiveImageIdx(idx)}
+                    className={`h-16 w-16 flex-shrink-0 overflow-hidden rounded-md border-2 transition-colors ${
+                      idx === activeImageIdx
+                        ? 'border-gold'
+                        : 'border-white/10 hover:border-white/30'
+                    }`}
+                  >
+                    <img
+                      src={img.url}
+                      alt={`${product.name} ${idx + 1}`}
+                      className="h-full w-full object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col justify-center">

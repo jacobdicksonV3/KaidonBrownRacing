@@ -45,6 +45,8 @@ const CartPage = () => {
   const { items, removeItem, updateQuantity, totalPrice } = useCart()
   const [address, setAddress] = useState({
     name: '',
+    email: '',
+    phone: '',
     line1: '',
     line2: '',
     city: '',
@@ -70,8 +72,8 @@ const CartPage = () => {
   })
 
   const handleCheckout = () => {
-    if (!address.name || !address.line1 || !address.city || !address.state || !address.postalCode) {
-      alert('Please fill in all required shipping fields.')
+    if (!address.name || !address.email || !address.line1 || !address.city || !address.state || !address.postalCode) {
+      alert('Please fill in all required fields.')
       return
     }
     checkout({
@@ -82,6 +84,8 @@ const CartPage = () => {
             quantity: i.quantity,
             size: i.size,
           })),
+          customerEmail: address.email,
+          customerPhone: address.phone || undefined,
           shippingAddress: {
             name: address.name,
             line1: address.line1,
@@ -191,6 +195,14 @@ const CartPage = () => {
                   <label className="mb-1 block text-xs text-white/40">Full Name *</label>
                   <input className={inputClass} value={address.name} onChange={set('name')} placeholder="John Smith" required />
                 </div>
+                <div>
+                  <label className="mb-1 block text-xs text-white/40">Email *</label>
+                  <input className={inputClass} type="email" value={address.email} onChange={set('email')} placeholder="you@email.com" required />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-white/40">Mobile Number</label>
+                  <input className={inputClass} type="tel" value={address.phone} onChange={set('phone')} placeholder="0412 345 678" />
+                </div>
                 <div className="md:col-span-2">
                   <label className="mb-1 block text-xs text-white/40">Address Line 1 *</label>
                   <input className={inputClass} value={address.line1} onChange={set('line1')} placeholder="123 Main St" required />
@@ -243,14 +255,6 @@ const CartPage = () => {
                     {shippingLoading ? '...' : `$${(shippingTotal / 100).toFixed(2)}`}
                   </span>
                 </div>
-                {shippingData?.calculateShipping?.surcharges > 0 && (
-                  <div className="flex justify-between text-xs">
-                    <span className="text-white/30">Includes item surcharges</span>
-                    <span className="text-white/30">
-                      +${(shippingData.calculateShipping.surcharges / 100).toFixed(2)}
-                    </span>
-                  </div>
-                )}
                 <div className="border-t border-white/10 pt-2">
                   <div className="flex justify-between">
                     <span className="font-heading text-base font-bold text-white">Total</span>

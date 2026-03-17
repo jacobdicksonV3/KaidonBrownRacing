@@ -16,13 +16,17 @@ import { useAuth } from 'src/auth'
 import Turnstile from 'src/components/Turnstile/Turnstile'
 
 const LoginPage = () => {
-  const { isAuthenticated, logIn } = useAuth()
+  const { isAuthenticated, logIn, currentUser, hasRole } = useAuth()
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate(routes.home())
+      if (hasRole('admin')) {
+        navigate(routes.adminDashboard())
+      } else {
+        navigate(routes.home())
+      }
     }
-  }, [isAuthenticated])
+  }, [isAuthenticated, currentUser])
 
   const turnstileToken = useRef<string>('')
 
@@ -43,6 +47,7 @@ const LoginPage = () => {
       toast.error(response.error)
     } else {
       toast.success('Welcome back!')
+      navigate(routes.adminDashboard())
     }
   }
 
