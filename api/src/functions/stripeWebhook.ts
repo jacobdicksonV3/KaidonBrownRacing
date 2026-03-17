@@ -60,6 +60,24 @@ export const handler = async (event: APIGatewayEvent) => {
 
       logger.info({ sessionId: session.id, orderId: order.id }, 'Order marked as paid')
 
+      // Decrement variant stock for each order item
+      for (const item of order.items) {
+        if (!item.size) continue
+        const variants = await db.productVariant.findMany({
+          where: { productId: item.productId },
+        })
+        const match = variants.find((v) => {
+          const opts = JSON.parse(v.options) as Record<string, string>
+          return Object.values(opts).join(' / ') === item.size
+        })
+        if (match) {
+          await db.productVariant.update({
+            where: { id: match.id },
+            data: { stock: { decrement: item.quantity } },
+          })
+        }
+      }
+
       // Send confirmation emails
       await sendOrderConfirmationEmail({
         orderId: order.id,
