@@ -18,9 +18,14 @@ export const handler = async (event: APIGatewayEvent) => {
 
   let stripeEvent: Stripe.Event
 
+  // On some hosts (e.g. Vercel) the body arrives base64-encoded
+  const rawBody = event.isBase64Encoded
+    ? Buffer.from(event.body!, 'base64').toString('utf-8')
+    : event.body!
+
   try {
     stripeEvent = stripe.webhooks.constructEvent(
-      event.body!,
+      rawBody,
       sig,
       process.env.STRIPE_WEBHOOK_SECRET!
     )
