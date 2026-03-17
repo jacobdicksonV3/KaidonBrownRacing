@@ -72,8 +72,8 @@ const SHIP_ORDER = gql`
 `
 
 const REFUND_ORDER = gql`
-  mutation AdminRefundOrder($id: Int!) {
-    adminRefundOrder(id: $id) { success message }
+  mutation AdminRefundOrder($id: Int!, $restoreStock: Boolean) {
+    adminRefundOrder(id: $id, restoreStock: $restoreStock) { success message }
   }
 `
 
@@ -112,6 +112,7 @@ const Success = ({ adminOrder: order }: CellSuccessProps) => {
   const [trackingInput, setTrackingInput] = useState(order.trackingNumber || '')
   const [noteInput, setNoteInput] = useState(order.notes || '')
   const [showRefundConfirm, setShowRefundConfirm] = useState(false)
+  const [restoreStock, setRestoreStock] = useState(true)
 
   const refetchConfig = {
     refetchQueries: ['AdminOrderDetailQuery'],
@@ -406,11 +407,20 @@ const Success = ({ adminOrder: order }: CellSuccessProps) => {
                       Refund ${(order.totalAmount / 100).toFixed(2)} to {order.customerEmail || 'customer'}?
                     </p>
                     <p className="mt-1 text-xs text-white/40">This action cannot be undone.</p>
+                    <label className="mt-3 flex items-center gap-2 text-sm text-white/60">
+                      <input
+                        type="checkbox"
+                        checked={restoreStock}
+                        onChange={(e) => setRestoreStock(e.target.checked)}
+                        className="h-4 w-4 rounded"
+                      />
+                      Restore inventory stock
+                    </label>
                     <div className="mt-3 flex gap-2">
                       <Button
                         variant="destructive"
                         size="sm"
-                        onClick={() => refundOrder({ variables: { id: order.id } })}
+                        onClick={() => refundOrder({ variables: { id: order.id, restoreStock } })}
                         disabled={refunding}
                       >
                         {refunding ? 'Processing...' : 'Confirm Refund'}

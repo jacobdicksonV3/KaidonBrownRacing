@@ -92,8 +92,11 @@ export const adminShipOrder: MutationResolvers['adminShipOrder'] = async ({
   return order
 }
 
-export const adminRefundOrder: MutationResolvers['adminRefundOrder'] = async ({ id }) => {
-  const order = await db.order.findUnique({ where: { id } })
+export const adminRefundOrder: MutationResolvers['adminRefundOrder'] = async ({ id, restoreStock }) => {
+  const order = await db.order.findUnique({
+    where: { id },
+    include: { items: true },
+  })
 
   if (!order) {
     return { success: false, message: 'Order not found.' }
@@ -126,7 +129,27 @@ export const adminRefundOrder: MutationResolvers['adminRefundOrder'] = async ({ 
       },
     })
 
-    return { success: true, message: 'Refund issued successfully.' }
+    // Restore variant stock if requested
+    if (restoreStock && order.items) {
+      for (const item of order.items) {
+        if (!item.size) continue
+        const variants = await db.productVariant.findMany({
+          where: { productId: item.productId },
+        })
+        const match = variants.find((v) => {
+          const opts = JSON.parse(v.options) as Record<string, string>
+          return Object.values(opts).join(' / ') === item.size
+        })
+        if (match) {
+          await db.productVariant.update({
+            where: { id: match.id },
+            data: { stock: { increment: item.quantity } },
+          })
+        }
+      }
+    }
+
+    return { success: true, message: restoreStock ? 'Refund issued and stock restored.' : 'Refund issued successfully.' }
   } catch (err) {
     logger.error(err, 'Stripe refund failed')
     const message = err instanceof Error ? err.message : 'Refund failed.'

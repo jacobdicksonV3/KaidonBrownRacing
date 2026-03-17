@@ -24,7 +24,7 @@ export const schema = gql`
   type Mutation {
     adminUpdateOrderStatus(id: Int!, status: String!): Order! @requireAuth(roles: ["admin"])
     adminShipOrder(id: Int!, trackingNumber: String!): Order! @requireAuth(roles: ["admin"])
-    adminRefundOrder(id: Int!): RefundResult! @requireAuth(roles: ["admin"])
+    adminRefundOrder(id: Int!, restoreStock: Boolean): RefundResult! @requireAuth(roles: ["admin"])
     adminAddOrderNote(id: Int!, notes: String!): Order! @requireAuth(roles: ["admin"])
     adminCreateProduct(input: CreateProductInput!): Product! @requireAuth(roles: ["admin"])
     adminUpdateProduct(id: Int!, input: UpdateProductInput!): Product! @requireAuth(roles: ["admin"])
