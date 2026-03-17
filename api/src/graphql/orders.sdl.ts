@@ -4,6 +4,7 @@ export const schema = gql`
     stripeSessionId: String!
     customerName: String!
     customerEmail: String!
+    customerPhone: String!
     status: String!
     totalAmount: Int!
     shippingAddress: String

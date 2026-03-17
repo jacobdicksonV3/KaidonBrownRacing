@@ -34,6 +34,7 @@ const QUERY = gql`
       stripeSessionId
       customerName
       customerEmail
+      customerPhone
       status
       totalAmount
       shippingAddress
@@ -199,6 +200,12 @@ const Success = ({ adminOrder: order }: CellSuccessProps) => {
                 <dt className="text-white/40">Email</dt>
                 <dd className="mt-0.5 text-white">{order.customerEmail || 'Not provided'}</dd>
               </div>
+              {order.customerPhone && (
+                <div>
+                  <dt className="text-white/40">Phone</dt>
+                  <dd className="mt-0.5 text-white">{order.customerPhone}</dd>
+                </div>
+              )}
               <div>
                 <dt className="text-white/40">Stripe Session</dt>
                 <dd className="mt-0.5 max-w-full truncate font-mono text-xs text-white/30">{order.stripeSessionId}</dd>

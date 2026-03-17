@@ -69,6 +69,7 @@ model Order {
   stripeSessionId  String      @unique
   customerName     String      @default("")
   customerEmail    String
+  customerPhone    String      @default("")
   status           String      @default("pending")
   totalAmount      Int
   shippingAddress  String?
