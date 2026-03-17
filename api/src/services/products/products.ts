@@ -22,10 +22,15 @@ export const Product: ProductRelationResolvers = {
   variants: (_obj, { root }) => {
     return db.product.findUnique({ where: { id: root.id } }).variants()
   },
+  images: (_obj, { root }) => {
+    return db.product
+      .findUnique({ where: { id: root.id } })
+      .images({ orderBy: { position: 'asc' } })
+  },
 }
 
 export const createProduct: MutationResolvers['createProduct'] = ({ input }) => {
-  const { attributes, variants, ...productData } = input
+  const { attributes, variants, images, ...productData } = input
   return db.product.create({
     data: {
       ...productData,
@@ -48,14 +53,39 @@ export const createProduct: MutationResolvers['createProduct'] = ({ input }) => 
             })),
           }
         : undefined,
+      images: images?.length
+        ? {
+            create: images.map((img) => ({
+              url: img.url,
+              position: img.position,
+              attributeValue: img.attributeValue,
+            })),
+          }
+        : undefined,
     },
   })
 }
 
 export const updateProduct: MutationResolvers['updateProduct'] = async ({ id, input }) => {
-  const { attributes, variants, ...productData } = input
+  const { attributes, variants, images, ...productData } = input
 
   const ops: Parameters<typeof db.$transaction>[0] = []
+
+  if (images) {
+    ops.push(db.productImage.deleteMany({ where: { productId: id } }))
+    for (const img of images) {
+      ops.push(
+        db.productImage.create({
+          data: {
+            productId: id,
+            url: img.url,
+            position: img.position,
+            attributeValue: img.attributeValue,
+          },
+        })
+      )
+    }
+  }
 
   if (attributes) {
     // Delete old attributes and recreate

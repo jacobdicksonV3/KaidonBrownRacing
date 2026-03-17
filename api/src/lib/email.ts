@@ -179,6 +179,10 @@ export async function sendOrderConfirmationEmail(order: OrderEmailData): Promise
   }
 }
 
+function getAusPostTrackingUrl(trackingNumber: string): string {
+  return `https://auspost.com.au/mypost/track/#/details/${encodeURIComponent(trackingNumber)}`
+}
+
 export async function sendShippedEmail(
   orderId: number,
   customerEmail: string,
@@ -186,6 +190,8 @@ export async function sendShippedEmail(
   trackingNumber: string
 ): Promise<void> {
   if (!process.env.SENDGRID_API_KEY || !customerEmail) return
+
+  const trackingUrl = getAusPostTrackingUrl(trackingNumber)
 
   try {
     await sgMail.send({
@@ -203,11 +209,13 @@ export async function sendShippedEmail(
     </div>
     <div style="padding:32px 0;">
       <h2 style="color:#ffffff;font-size:20px;margin:0 0 8px;">Your Order Has Shipped!</h2>
-      <p style="color:#999;font-size:14px;margin:0 0 24px;">Hey ${customerName || 'there'}, your order #${orderId} is on its way.</p>
+      <p style="color:#999;font-size:14px;margin:0 0 24px;">Hey ${customerName || 'there'}, your order #${orderId} is on its way via Australia Post.</p>
       <div style="background-color:#111;border-radius:8px;padding:20px;">
         <p style="margin:0 0 8px;color:#666;font-size:11px;text-transform:uppercase;letter-spacing:1px;">Tracking Number</p>
         <p style="margin:0;color:#facc15;font-size:18px;font-weight:bold;font-family:monospace;">${trackingNumber}</p>
+        <a href="${trackingUrl}" style="display:inline-block;margin-top:16px;padding:10px 24px;background-color:#dc2626;color:#ffffff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:bold;letter-spacing:1px;">TRACK YOUR PARCEL</a>
       </div>
+      <p style="margin:16px 0 0;color:#666;font-size:12px;">Or copy this link: <a href="${trackingUrl}" style="color:#facc15;">${trackingUrl}</a></p>
     </div>
     <div style="border-top:1px solid #222;padding:24px 0;text-align:center;">
       <p style="margin:0;color:#444;font-size:12px;">&copy; ${new Date().getFullYear()} Kaidon Brown Racing. All rights reserved.</p>

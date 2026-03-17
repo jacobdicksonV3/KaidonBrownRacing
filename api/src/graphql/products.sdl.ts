@@ -14,6 +14,7 @@ export const schema = gql`
     updatedAt: DateTime!
     attributes: [ProductAttribute!]!
     variants: [ProductVariant!]!
+    images: [ProductImage!]!
   }
 
   type ProductAttribute {
@@ -31,6 +32,14 @@ export const schema = gql`
     sku: String
     price: Int
     stock: Int!
+  }
+
+  type ProductImage {
+    id: Int!
+    productId: Int!
+    url: String!
+    position: Int!
+    attributeValue: String
   }
 
   type Query {
@@ -53,6 +62,13 @@ export const schema = gql`
     stock: Int!
   }
 
+  input ProductImageInput {
+    id: Int
+    url: String!
+    position: Int!
+    attributeValue: String
+  }
+
   input CreateProductInput {
     name: String!
     slug: String!
@@ -64,6 +80,7 @@ export const schema = gql`
     shippingSurcharge: Int
     attributes: [AttributeInput!]
     variants: [VariantInput!]
+    images: [ProductImageInput!]
   }
 
   input UpdateProductInput {
@@ -78,6 +95,7 @@ export const schema = gql`
     active: Boolean
     attributes: [AttributeInput!]
     variants: [VariantInput!]
+    images: [ProductImageInput!]
   }
 
   type Mutation {

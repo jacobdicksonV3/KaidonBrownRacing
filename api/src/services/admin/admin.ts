@@ -49,14 +49,14 @@ export const adminOrder: QueryResolvers['adminOrder'] = ({ id }) => {
 export const adminProducts: QueryResolvers['adminProducts'] = () => {
   return db.product.findMany({
     orderBy: { createdAt: 'desc' },
-    include: { attributes: { orderBy: { position: 'asc' } }, variants: true },
+    include: { attributes: { orderBy: { position: 'asc' } }, variants: true, images: { orderBy: { position: 'asc' } } },
   })
 }
 
 export const adminProduct: QueryResolvers['adminProduct'] = ({ id }) => {
   return db.product.findUnique({
     where: { id },
-    include: { attributes: { orderBy: { position: 'asc' } }, variants: true },
+    include: { attributes: { orderBy: { position: 'asc' } }, variants: true, images: { orderBy: { position: 'asc' } } },
   })
 }
 

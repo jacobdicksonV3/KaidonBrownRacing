@@ -28,7 +28,7 @@ const SkeletonCard = () => (
 )
 
 export const Loading = () => (
-  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+  <div className="mx-auto grid max-w-5xl grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
     {Array.from({ length: 6 }).map((_, i) => (
       <SkeletonCard key={i} />
     ))}
@@ -44,16 +44,17 @@ export const Failure = ({ error }: CellFailureProps<ProductsQueryVariables>) => 
 )
 
 export const Success = ({ products }: CellSuccessProps<ProductsQuery, ProductsQueryVariables>) => (
-  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+  <div className="mx-auto flex max-w-5xl flex-wrap justify-center gap-6">
     {products.map((product) => (
-      <ProductCard
-        key={product.id}
-        id={product.id}
-        name={product.name}
-        price={product.price}
-        imageUrl={product.imageUrl}
-        category={product.category}
-      />
+      <div key={product.id} className="w-full sm:w-[calc(50%-12px)] lg:w-[calc(33.333%-16px)]">
+        <ProductCard
+          id={product.id}
+          name={product.name}
+          price={product.price}
+          imageUrl={product.imageUrl}
+          category={product.category}
+        />
+      </div>
     ))}
   </div>
 )

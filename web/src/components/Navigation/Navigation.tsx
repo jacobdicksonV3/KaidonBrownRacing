@@ -1,8 +1,9 @@
 import { useState } from 'react'
 
 import { Link, routes } from '@cedarjs/router'
-import { Menu, X } from 'lucide-react'
+import { Menu, X, Shield } from 'lucide-react'
 
+import { useAuth } from 'src/auth'
 import CartIcon from 'src/components/CartIcon/CartIcon'
 
 const navLinks = [
@@ -14,6 +15,8 @@ const navLinks = [
 
 const Navigation = () => {
   const [open, setOpen] = useState(false)
+  const { isAuthenticated, hasRole } = useAuth()
+  const isAdmin = isAuthenticated && hasRole('admin')
 
   return (
     <nav className="sticky top-0 z-50 border-b border-white/5 bg-black/90 backdrop-blur-md">
@@ -33,6 +36,15 @@ const Navigation = () => {
               {link.label}
             </Link>
           ))}
+          {isAdmin && (
+            <Link
+              to={routes.adminDashboard()}
+              className="flex items-center gap-1.5 font-heading text-sm font-bold uppercase italic tracking-wider text-racing-red transition-colors hover:text-gold"
+            >
+              <Shield className="h-3.5 w-3.5" />
+              Admin
+            </Link>
+          )}
           <CartIcon />
         </div>
 
@@ -56,6 +68,16 @@ const Navigation = () => {
               {link.label}
             </Link>
           ))}
+          {isAdmin && (
+            <Link
+              to={routes.adminDashboard()}
+              className="flex items-center gap-2 px-4 py-3 font-heading text-sm font-bold uppercase italic tracking-wider text-racing-red transition-colors hover:bg-white/5 hover:text-gold"
+              onClick={() => setOpen(false)}
+            >
+              <Shield className="h-3.5 w-3.5" />
+              Admin
+            </Link>
+          )}
         </div>
       )}
     </nav>

@@ -229,9 +229,16 @@ const Success = ({ adminOrder: order }: CellSuccessProps) => {
               <div className="mt-4 rounded border border-white/10 bg-white/[0.03] p-3">
                 <div className="flex items-center gap-2 text-xs text-white/40">
                   <Truck className="h-3 w-3" />
-                  Tracking Number
+                  Tracking Number (Australia Post)
                 </div>
-                <p className="mt-1 font-mono text-sm text-gold">{order.trackingNumber}</p>
+                <a
+                  href={`https://auspost.com.au/mypost/track/#/details/${encodeURIComponent(order.trackingNumber)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-1 block font-mono text-sm text-gold hover:underline"
+                >
+                  {order.trackingNumber}
+                </a>
               </div>
             )}
           </CardContent>
@@ -265,8 +272,15 @@ const Success = ({ adminOrder: order }: CellSuccessProps) => {
                 <div className="flex items-start gap-3">
                   <div className="mt-0.5 h-2 w-2 rounded-full bg-blue-500" />
                   <div>
-                    <p className="text-white/70">Shipped</p>
-                    <p className="font-mono text-xs text-white/30">{order.trackingNumber}</p>
+                    <p className="text-white/70">Shipped via Australia Post</p>
+                    <a
+                      href={`https://auspost.com.au/mypost/track/#/details/${encodeURIComponent(order.trackingNumber)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-mono text-xs text-gold hover:underline"
+                    >
+                      {order.trackingNumber}
+                    </a>
                   </div>
                 </div>
               )}

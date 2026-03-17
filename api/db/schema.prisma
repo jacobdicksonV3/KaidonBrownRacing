@@ -33,6 +33,16 @@ model Product {
   orderItems        OrderItem[]
   attributes        ProductAttribute[]
   variants          ProductVariant[]
+  images            ProductImage[]
+}
+
+model ProductImage {
+  id             Int     @id @default(autoincrement())
+  productId      Int
+  url            String
+  position       Int     @default(0)
+  attributeValue String?
+  product        Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model ProductAttribute {

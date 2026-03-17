@@ -13,7 +13,7 @@ const ProductCard = ({ id, name, price, imageUrl, category }: ProductCardProps) 
     to={routes.product({ id })}
     className="group overflow-hidden rounded-lg bg-surface transition-transform hover:-translate-y-1"
   >
-    <div className="overflow-hidden">
+    <div className="overflow-hidden rounded-t-lg">
       <img
         src={imageUrl}
         alt={name}

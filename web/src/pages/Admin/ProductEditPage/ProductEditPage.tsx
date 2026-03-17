@@ -15,6 +15,7 @@ import { Label } from 'src/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from 'src/components/ui/card'
 import { Badge } from 'src/components/ui/badge'
 import ImageUpload from 'src/components/ImageUpload/ImageUpload'
+import MultiImageUpload, { type ProductImageItem } from 'src/components/MultiImageUpload/MultiImageUpload'
 
 const QUERY = gql`
   query AdminProductEditQuery($id: Int!) {
@@ -40,6 +41,12 @@ const QUERY = gql`
         sku
         price
         stock
+      }
+      images {
+        id
+        url
+        position
+        attributeValue
       }
     }
   }
@@ -128,6 +135,15 @@ const Success = ({ adminProduct: product }: CellSuccessProps) => {
     }))
   )
 
+  const [productImages, setProductImages] = useState<ProductImageItem[]>(
+    (product.images || []).map((img) => ({
+      key: crypto.randomUUID(),
+      url: img.url,
+      position: img.position,
+      attributeValue: img.attributeValue || '',
+    }))
+  )
+
   const [newValue, setNewValue] = useState<Record<string, string>>({})
 
   const [update, { loading }] = useMutation(UPDATE_PRODUCT, {
@@ -168,6 +184,11 @@ const Success = ({ adminProduct: product }: CellSuccessProps) => {
             sku: v.sku || null,
             price: v.price ? Math.round(parseFloat(v.price) * 100) : null,
             stock: parseInt(v.stock) || 0,
+          })),
+          images: productImages.map((img, i) => ({
+            url: img.url,
+            position: i,
+            attributeValue: img.attributeValue || null,
           })),
         },
       },
@@ -258,8 +279,16 @@ const Success = ({ adminProduct: product }: CellSuccessProps) => {
               <Input type="number" step="0.01" value={form.shippingSurcharge} onChange={set('shippingSurcharge')} className="mt-1" placeholder="0.00" />
             </div>
             <div className="md:col-span-2">
-              <Label>Product Image</Label>
+              <Label>Main Product Image</Label>
               <ImageUpload value={form.imageUrl} onChange={(url) => setForm((prev) => ({ ...prev, imageUrl: url }))} />
+            </div>
+            <div className="md:col-span-2">
+              <Label>Additional Images</Label>
+              <MultiImageUpload
+                images={productImages}
+                onChange={setProductImages}
+                attributeValues={attributes.flatMap((a) => a.values)}
+              />
             </div>
             <div className="md:col-span-2">
               <Label>Description</Label>

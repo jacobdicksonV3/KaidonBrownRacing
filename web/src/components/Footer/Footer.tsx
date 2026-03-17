@@ -50,7 +50,7 @@ const Footer = () => {
           </div>
         </div>
 
-        <div className="mt-8 flex flex-col items-center gap-4 border-t border-white/5 pt-8 text-sm text-white/30 sm:flex-row sm:justify-between">
+        <div className="mt-8 flex flex-col items-center gap-4 border-t border-white/5 pt-8 font-heading text-sm font-bold uppercase italic tracking-wider text-white/30 sm:flex-row sm:justify-between">
           <span>&copy; {new Date().getFullYear()} Kaidon Brown Racing. All rights reserved.</span>
           <div className="flex items-center gap-2">
             <span>Built by</span>

@@ -13,6 +13,7 @@ import { Label } from 'src/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from 'src/components/ui/card'
 import { Badge } from 'src/components/ui/badge'
 import ImageUpload from 'src/components/ImageUpload/ImageUpload'
+import MultiImageUpload, { type ProductImageItem } from 'src/components/MultiImageUpload/MultiImageUpload'
 
 const CREATE_PRODUCT = gql`
   mutation AdminCreateProductMutation($input: CreateProductInput!) {
@@ -76,6 +77,7 @@ const AdminProductNewPage = () => {
   })
   const [attributes, setAttributes] = useState<Attribute[]>([])
   const [variants, setVariants] = useState<VariantRow[]>([])
+  const [productImages, setProductImages] = useState<ProductImageItem[]>([])
   const [newValue, setNewValue] = useState<Record<string, string>>({})
 
   const [create, { loading }] = useMutation(CREATE_PRODUCT, {
@@ -111,6 +113,11 @@ const AdminProductNewPage = () => {
             sku: v.sku || null,
             price: v.price ? Math.round(parseFloat(v.price) * 100) : null,
             stock: parseInt(v.stock) || 0,
+          })),
+          images: productImages.map((img, i) => ({
+            url: img.url,
+            position: i,
+            attributeValue: img.attributeValue || null,
           })),
         },
       },
@@ -205,8 +212,16 @@ const AdminProductNewPage = () => {
                 <Input type="number" step="0.01" value={form.shippingSurcharge} onChange={set('shippingSurcharge')} className="mt-1" placeholder="0.00" />
               </div>
               <div className="md:col-span-2">
-                <Label>Product Image</Label>
+                <Label>Main Product Image</Label>
                 <ImageUpload value={form.imageUrl} onChange={(url) => setForm((prev) => ({ ...prev, imageUrl: url }))} />
+              </div>
+              <div className="md:col-span-2">
+                <Label>Additional Images</Label>
+                <MultiImageUpload
+                  images={productImages}
+                  onChange={setProductImages}
+                  attributeValues={attributes.flatMap((a) => a.values)}
+                />
               </div>
               <div className="md:col-span-2">
                 <Label>Description</Label>
