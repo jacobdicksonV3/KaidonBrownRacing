@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 
 import { Link, routes } from '@cedarjs/router'
 import { Metadata } from '@cedarjs/web'
 import { useMutation, useQuery } from '@cedarjs/web'
-import { Trash2, Minus, Plus, Truck } from 'lucide-react'
+import { Trash2, Minus, Plus, Truck, MapPin, Tag } from 'lucide-react'
 
 import SectionHeading from 'src/components/SectionHeading/SectionHeading'
 import { useCart } from 'src/components/CartProvider/CartProvider'
@@ -17,12 +17,24 @@ const CREATE_CHECKOUT_SESSION = gql`
 `
 
 const CALCULATE_SHIPPING = gql`
-  query CalculateShipping($country: String!, $items: [ShippingItemInput!]!) {
-    calculateShipping(country: $country, items: $items) {
+  query CalculateShipping($country: String!, $items: [ShippingItemInput!]!, $deliveryMethod: String) {
+    calculateShipping(country: $country, items: $items, deliveryMethod: $deliveryMethod) {
       baseRate
       surcharges
       total
       isInternational
+    }
+  }
+`
+
+const VALIDATE_COUPON = gql`
+  query ValidateCoupon($code: String!, $subtotal: Int!) {
+    validateCoupon(code: $code, subtotal: $subtotal) {
+      valid
+      discountType
+      discountValue
+      discountAmount
+      message
     }
   }
 `
@@ -43,6 +55,7 @@ const inputClass =
 
 const CartPage = () => {
   const { items, removeItem, updateQuantity, totalPrice } = useCart()
+  const [deliveryMethod, setDeliveryMethod] = useState<'shipping' | 'pickup'>('shipping')
   const [address, setAddress] = useState({
     name: '',
     email: '',
@@ -54,16 +67,56 @@ const CartPage = () => {
     postalCode: '',
     country: 'AU',
   })
+  const [couponInput, setCouponInput] = useState('')
+  const [appliedCoupon, setAppliedCoupon] = useState<{
+    code: string
+    discountType: string
+    discountValue: number
+    discountAmount: number
+    message: string
+  } | null>(null)
+  const [couponError, setCouponError] = useState('')
+  const [couponToValidate, setCouponToValidate] = useState('')
 
   const shippingItems = items.map((i) => ({ productId: i.id, quantity: i.quantity }))
 
   const { data: shippingData, loading: shippingLoading } = useQuery(CALCULATE_SHIPPING, {
-    variables: { country: address.country, items: shippingItems },
+    variables: { country: address.country, items: shippingItems, deliveryMethod },
     skip: items.length === 0,
   })
 
   const shippingTotal = shippingData?.calculateShipping?.total || 0
-  const grandTotal = totalPrice + shippingTotal
+
+  const { loading: couponLoading } = useQuery(VALIDATE_COUPON, {
+    variables: { code: couponToValidate, subtotal: totalPrice },
+    skip: !couponToValidate,
+    fetchPolicy: 'network-only',
+    onCompleted: (data) => {
+      const result = data.validateCoupon
+      if (result.valid) {
+        setAppliedCoupon({
+          code: couponToValidate.toUpperCase(),
+          discountType: result.discountType,
+          discountValue: result.discountValue,
+          discountAmount: result.discountAmount,
+          message: result.message,
+        })
+        setCouponError('')
+      } else {
+        setCouponError(result.message)
+        setAppliedCoupon(null)
+      }
+      setCouponToValidate('')
+    },
+  })
+
+  // Calculate discount for display
+  let displayDiscount = appliedCoupon?.discountAmount || 0
+  if (appliedCoupon?.discountType === 'free_shipping') {
+    displayDiscount = shippingTotal
+  }
+
+  const grandTotal = totalPrice + shippingTotal - displayDiscount
 
   const [checkout, { loading }] = useMutation(CREATE_CHECKOUT_SESSION, {
     onCompleted: (data) => {
@@ -71,10 +124,27 @@ const CartPage = () => {
     },
   })
 
+  const handleApplyCoupon = () => {
+    if (!couponInput.trim()) return
+    setCouponToValidate(couponInput.trim())
+  }
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null)
+    setCouponInput('')
+    setCouponError('')
+  }
+
   const handleCheckout = () => {
-    if (!address.name || !address.email || !address.line1 || !address.city || !address.state || !address.postalCode) {
-      alert('Please fill in all required fields.')
+    if (!address.name || !address.email) {
+      alert('Please fill in your name and email address.')
       return
+    }
+    if (deliveryMethod === 'shipping') {
+      if (!address.line1 || !address.city || !address.state || !address.postalCode) {
+        alert('Please fill in all required shipping fields.')
+        return
+      }
     }
     checkout({
       variables: {
@@ -84,17 +154,23 @@ const CartPage = () => {
             quantity: i.quantity,
             size: i.size,
           })),
+          customerName: address.name,
           customerEmail: address.email,
           customerPhone: address.phone || undefined,
-          shippingAddress: {
-            name: address.name,
-            line1: address.line1,
-            line2: address.line2 || undefined,
-            city: address.city,
-            state: address.state,
-            postalCode: address.postalCode,
-            country: address.country,
-          },
+          deliveryMethod,
+          couponCode: appliedCoupon?.code || undefined,
+          shippingAddress:
+            deliveryMethod === 'shipping'
+              ? {
+                  name: address.name,
+                  line1: address.line1,
+                  line2: address.line2 || undefined,
+                  city: address.city,
+                  state: address.state,
+                  postalCode: address.postalCode,
+                  country: address.country,
+                }
+              : undefined,
         },
       },
     })
@@ -128,7 +204,7 @@ const CartPage = () => {
         <SectionHeading title="YOUR CART" />
 
         <div className="grid gap-8 lg:grid-cols-[1fr_380px]">
-          {/* Left: Items + Shipping Address */}
+          {/* Left: Items + Delivery + Address */}
           <div className="space-y-6">
             {/* Cart items */}
             <div className="space-y-3">
@@ -181,14 +257,61 @@ const CartPage = () => {
               ))}
             </div>
 
-            {/* Shipping address */}
+            {/* Delivery method toggle */}
+            <div className="rounded-lg border border-white/5 bg-surface p-4 md:p-6">
+              <h3 className="mb-4 font-heading text-sm font-bold tracking-wider text-white">
+                DELIVERY METHOD
+              </h3>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <button
+                  onClick={() => setDeliveryMethod('shipping')}
+                  className={`flex items-center gap-3 rounded-lg border p-4 text-left transition-colors ${
+                    deliveryMethod === 'shipping'
+                      ? 'border-racing-red bg-racing-red/10 text-white'
+                      : 'border-white/10 text-white/50 hover:border-white/20'
+                  }`}
+                >
+                  <Truck className="h-5 w-5 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium">Ship to Address</p>
+                    <p className="text-xs text-white/40">Standard delivery</p>
+                  </div>
+                </button>
+                <button
+                  onClick={() => setDeliveryMethod('pickup')}
+                  className={`flex items-center gap-3 rounded-lg border p-4 text-left transition-colors ${
+                    deliveryMethod === 'pickup'
+                      ? 'border-racing-red bg-racing-red/10 text-white'
+                      : 'border-white/10 text-white/50 hover:border-white/20'
+                  }`}
+                >
+                  <MapPin className="h-5 w-5 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium">Pickup from Track</p>
+                    <p className="text-xs text-white/40">Collect at race meet</p>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* Contact info (always shown) + Shipping address (only for shipping) */}
             <div className="rounded-lg border border-white/5 bg-surface p-4 md:p-6">
               <div className="mb-4 flex items-center gap-2">
-                <Truck className="h-4 w-4 text-white/40" />
+                {deliveryMethod === 'shipping' ? (
+                  <Truck className="h-4 w-4 text-white/40" />
+                ) : (
+                  <MapPin className="h-4 w-4 text-white/40" />
+                )}
                 <h3 className="font-heading text-sm font-bold tracking-wider text-white">
-                  SHIPPING ADDRESS
+                  {deliveryMethod === 'shipping' ? 'SHIPPING ADDRESS' : 'CONTACT DETAILS'}
                 </h3>
               </div>
+
+              {deliveryMethod === 'pickup' && (
+                <div className="mb-4 rounded border border-gold/20 bg-gold/5 px-4 py-3 text-sm text-gold">
+                  Collect your order at the next race meet. We&apos;ll email you when it&apos;s ready.
+                </div>
+              )}
 
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="md:col-span-2">
@@ -203,34 +326,38 @@ const CartPage = () => {
                   <label className="mb-1 block text-xs text-white/40">Mobile Number</label>
                   <input className={inputClass} type="tel" value={address.phone} onChange={set('phone')} placeholder="0412 345 678" />
                 </div>
-                <div className="md:col-span-2">
-                  <label className="mb-1 block text-xs text-white/40">Address Line 1 *</label>
-                  <input className={inputClass} value={address.line1} onChange={set('line1')} placeholder="123 Main St" required />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="mb-1 block text-xs text-white/40">Address Line 2</label>
-                  <input className={inputClass} value={address.line2} onChange={set('line2')} placeholder="Apt, unit, etc." />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs text-white/40">City *</label>
-                  <input className={inputClass} value={address.city} onChange={set('city')} placeholder="Melbourne" required />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs text-white/40">State *</label>
-                  <input className={inputClass} value={address.state} onChange={set('state')} placeholder="VIC" required />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs text-white/40">Postcode *</label>
-                  <input className={inputClass} value={address.postalCode} onChange={set('postalCode')} placeholder="3000" required />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs text-white/40">Country *</label>
-                  <select className={`${inputClass} [&>option]:bg-[#1a1a1a] [&>option]:text-white`} value={address.country} onChange={set('country')}>
-                    {COUNTRIES.map((c) => (
-                      <option key={c.code} value={c.code} className="bg-[#1a1a1a] text-white">{c.name}</option>
-                    ))}
-                  </select>
-                </div>
+                {deliveryMethod === 'shipping' && (
+                  <>
+                    <div className="md:col-span-2">
+                      <label className="mb-1 block text-xs text-white/40">Address Line 1 *</label>
+                      <input className={inputClass} value={address.line1} onChange={set('line1')} placeholder="123 Main St" required />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="mb-1 block text-xs text-white/40">Address Line 2</label>
+                      <input className={inputClass} value={address.line2} onChange={set('line2')} placeholder="Apt, unit, etc." />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-white/40">City *</label>
+                      <input className={inputClass} value={address.city} onChange={set('city')} placeholder="Melbourne" required />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-white/40">State *</label>
+                      <input className={inputClass} value={address.state} onChange={set('state')} placeholder="VIC" required />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-white/40">Postcode *</label>
+                      <input className={inputClass} value={address.postalCode} onChange={set('postalCode')} placeholder="3000" required />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-white/40">Country *</label>
+                      <select className={`${inputClass} [&>option]:bg-[#1a1a1a] [&>option]:text-white`} value={address.country} onChange={set('country')}>
+                        {COUNTRIES.map((c) => (
+                          <option key={c.code} value={c.code} className="bg-[#1a1a1a] text-white">{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -249,12 +376,28 @@ const CartPage = () => {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-white/50">
-                    Shipping {shippingData?.calculateShipping?.isInternational ? '(Intl)' : '(AU)'}
+                    {deliveryMethod === 'pickup'
+                      ? 'Pickup from Track'
+                      : `Shipping ${shippingData?.calculateShipping?.isInternational ? '(Intl)' : '(AU)'}`}
                   </span>
                   <span className="text-white">
-                    {shippingLoading ? '...' : `$${(shippingTotal / 100).toFixed(2)}`}
+                    {deliveryMethod === 'pickup'
+                      ? 'Free'
+                      : shippingLoading
+                        ? '...'
+                        : `$${(shippingTotal / 100).toFixed(2)}`}
                   </span>
                 </div>
+                {appliedCoupon && displayDiscount > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-green-400">
+                      Discount ({appliedCoupon.code})
+                    </span>
+                    <span className="text-green-400">
+                      -${(displayDiscount / 100).toFixed(2)}
+                    </span>
+                  </div>
+                )}
                 <div className="border-t border-white/10 pt-2">
                   <div className="flex justify-between">
                     <span className="font-heading text-base font-bold text-white">Total</span>
@@ -263,6 +406,49 @@ const CartPage = () => {
                     </span>
                   </div>
                 </div>
+              </div>
+
+              {/* Coupon code input */}
+              <div className="mt-4 border-t border-white/10 pt-4">
+                {appliedCoupon ? (
+                  <div className="flex items-center justify-between rounded border border-green-500/20 bg-green-500/5 px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <Tag className="h-4 w-4 text-green-400" />
+                      <span className="text-sm text-green-400">{appliedCoupon.message}</span>
+                    </div>
+                    <button
+                      onClick={handleRemoveCoupon}
+                      className="text-xs text-white/40 hover:text-white"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="flex gap-2">
+                      <input
+                        className={inputClass}
+                        value={couponInput}
+                        onChange={(e) => {
+                          setCouponInput(e.target.value)
+                          setCouponError('')
+                        }}
+                        placeholder="Coupon code"
+                        onKeyDown={(e) => e.key === 'Enter' && handleApplyCoupon()}
+                      />
+                      <button
+                        onClick={handleApplyCoupon}
+                        disabled={couponLoading || !couponInput.trim()}
+                        className="flex-shrink-0 rounded border border-white/10 px-4 py-2 text-sm text-white/70 transition-colors hover:border-white/20 hover:text-white disabled:opacity-50"
+                      >
+                        {couponLoading ? '...' : 'Apply'}
+                      </button>
+                    </div>
+                    {couponError && (
+                      <p className="mt-2 text-xs text-racing-red">{couponError}</p>
+                    )}
+                  </div>
+                )}
               </div>
 
               <button

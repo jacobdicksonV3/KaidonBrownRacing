@@ -21,7 +21,18 @@ export { getShippingRates }
 export const calculateShipping: QueryResolvers['calculateShipping'] = async ({
   country,
   items,
+  deliveryMethod,
 }) => {
+  if (deliveryMethod === 'pickup') {
+    return {
+      baseRate: 0,
+      surcharges: 0,
+      total: 0,
+      country: country.toUpperCase(),
+      isInternational: false,
+    }
+  }
+
   const rates = await getShippingRates()
   const isInternational = country.toUpperCase() !== 'AU'
   const baseRate = isInternational ? rates.intl : rates.au

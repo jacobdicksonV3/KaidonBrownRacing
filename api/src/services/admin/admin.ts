@@ -2,7 +2,11 @@ import Stripe from 'stripe'
 import type { QueryResolvers, MutationResolvers } from 'types/graphql'
 
 import { db } from 'src/lib/db.js'
-import { sendShippedEmail } from 'src/lib/email.js'
+import {
+  sendShippedEmail,
+  sendReadyForCollectionEmail,
+  sendCollectedEmail,
+} from 'src/lib/email.js'
 import { logger } from 'src/lib/logger.js'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -68,11 +72,19 @@ export const adminContactMessages: QueryResolvers['adminContactMessages'] = () =
   return db.contactMessage.findMany({ orderBy: { createdAt: 'desc' } })
 }
 
-export const adminUpdateOrderStatus: MutationResolvers['adminUpdateOrderStatus'] = ({
+export const adminUpdateOrderStatus: MutationResolvers['adminUpdateOrderStatus'] = async ({
   id,
   status,
 }) => {
-  return db.order.update({ where: { id }, data: { status } })
+  const order = await db.order.update({ where: { id }, data: { status } })
+
+  if (status === 'ready_for_collection') {
+    await sendReadyForCollectionEmail(order.id, order.customerEmail, order.customerName)
+  } else if (status === 'collected') {
+    await sendCollectedEmail(order.id, order.customerEmail, order.customerName)
+  }
+
+  return order
 }
 
 export const adminShipOrder: MutationResolvers['adminShipOrder'] = async ({

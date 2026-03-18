@@ -11,6 +11,9 @@ export const schema = gql`
     trackingNumber: String
     refundedAt: DateTime
     notes: String
+    couponCode: String
+    discountAmount: Int!
+    deliveryMethod: String!
     createdAt: DateTime!
     updatedAt: DateTime!
     items: [OrderItem!]!

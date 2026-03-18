@@ -21,6 +21,7 @@ const Routes = () => {
         <Route path="/admin/products/new" page={AdminProductNewPage} name="adminProductNew" />
         <Route path="/admin/products/{id:Int}/edit" page={AdminProductEditPage} name="adminProductEdit" />
         <Route path="/admin/messages" page={AdminContactMessagesPage} name="adminContactMessages" />
+        <Route path="/admin/coupons" page={AdminCouponsPage} name="adminCoupons" />
         <Route path="/admin/settings" page={AdminSettingsPage} name="adminSettings" />
       </Private>
 

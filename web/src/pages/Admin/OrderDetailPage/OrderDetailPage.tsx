@@ -10,21 +10,19 @@ import {
   ArrowLeft,
   Package,
   Truck,
-  CreditCard,
   MapPin,
   Clock,
   User,
-  Hash,
   AlertTriangle,
   RotateCcw,
   StickyNote,
+  CheckCircle2,
 } from 'lucide-react'
 
 import { Badge } from 'src/components/ui/badge'
 import { Button } from 'src/components/ui/button'
 import { Input } from 'src/components/ui/input'
 import { Textarea } from 'src/components/ui/textarea'
-import { Label } from 'src/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from 'src/components/ui/card'
 
 const QUERY = gql`
@@ -41,6 +39,9 @@ const QUERY = gql`
       trackingNumber
       refundedAt
       notes
+      couponCode
+      discountAmount
+      deliveryMethod
       createdAt
       updatedAt
       items {
@@ -87,6 +88,8 @@ const statusConfig: Record<string, { variant: 'success' | 'warning' | 'destructi
   pending: { variant: 'warning', label: 'Pending' },
   paid: { variant: 'success', label: 'Paid' },
   shipped: { variant: 'default', label: 'Shipped' },
+  ready_for_collection: { variant: 'default', label: 'Ready for Collection' },
+  collected: { variant: 'success', label: 'Collected' },
   refunded: { variant: 'destructive', label: 'Refunded' },
   cancelled: { variant: 'destructive', label: 'Cancelled' },
 }
@@ -114,12 +117,15 @@ const Success = ({ adminOrder: order }: CellSuccessProps) => {
   const [showRefundConfirm, setShowRefundConfirm] = useState(false)
   const [restoreStock, setRestoreStock] = useState(true)
 
+  const isPickup = order.deliveryMethod === 'pickup'
+  const isTerminal = order.status === 'refunded' || order.status === 'cancelled'
+
   const refetchConfig = {
     refetchQueries: ['AdminOrderDetailQuery'],
     onError: (err: Error) => toast.error(err.message),
   }
 
-  const [updateStatus] = useMutation(UPDATE_STATUS, {
+  const [updateStatus, { loading: statusUpdating }] = useMutation(UPDATE_STATUS, {
     ...refetchConfig,
     onCompleted: () => toast.success('Status updated'),
   })
@@ -155,44 +161,63 @@ const Success = ({ adminOrder: order }: CellSuccessProps) => {
     shipOrder({ variables: { id: order.id, trackingNumber: trackingInput.trim() } })
   }
 
+  // Build the status flow steps based on delivery method
+  const shippingSteps = [
+    { value: 'pending', label: 'Pending', desc: 'Awaiting payment', color: 'bg-yellow-500', ring: 'ring-yellow-500/30' },
+    { value: 'paid', label: 'Paid', desc: 'Payment received', color: 'bg-green-500', ring: 'ring-green-500/30' },
+    { value: 'shipped', label: 'Shipped', desc: 'Dispatched to customer', color: 'bg-blue-500', ring: 'ring-blue-500/30' },
+  ]
+  const pickupSteps = [
+    { value: 'pending', label: 'Pending', desc: 'Awaiting payment', color: 'bg-yellow-500', ring: 'ring-yellow-500/30' },
+    { value: 'paid', label: 'Paid', desc: 'Payment received', color: 'bg-green-500', ring: 'ring-green-500/30' },
+    { value: 'ready_for_collection', label: 'Ready for Collection', desc: 'Awaiting pickup at track', color: 'bg-blue-500', ring: 'ring-blue-500/30' },
+    { value: 'collected', label: 'Collected', desc: 'Customer has collected', color: 'bg-emerald-500', ring: 'ring-emerald-500/30' },
+  ]
+
+  const steps = isPickup ? pickupSteps : shippingSteps
+  const currentStepIndex = steps.findIndex((s) => s.value === order.status)
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Order header banner */}
       <Card>
-        <CardContent className="p-6">
+        <CardContent className="p-4 md:p-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <div className="flex items-center gap-3">
-                <h2 className="font-heading text-xl font-bold text-white">Order #{order.id}</h2>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="font-heading text-lg font-bold text-white md:text-xl">Order #{order.id}</h2>
                 <Badge variant={sc.variant}>{sc.label}</Badge>
+                {isPickup && <Badge variant="secondary">Pickup</Badge>}
                 {order.refundedAt && (
                   <Badge variant="destructive">Refunded {new Date(order.refundedAt).toLocaleDateString()}</Badge>
                 )}
               </div>
-              <p className="mt-1 text-sm text-white/40">
-                Placed {new Date(order.createdAt).toLocaleString()} &middot; Updated {new Date(order.updatedAt).toLocaleString()}
-              </p>
+              <div className="mt-1 text-xs text-white/40 md:text-sm">
+                <span>Placed {new Date(order.createdAt).toLocaleString()}</span>
+              </div>
             </div>
-            <div className="text-right">
-              <p className="text-sm text-white/40">Order Total</p>
-              <p className="font-heading text-3xl font-bold text-white">${(order.totalAmount / 100).toFixed(2)}</p>
-              <p className="text-sm text-white/40">{itemCount} item{itemCount !== 1 ? 's' : ''}</p>
+            <div className="flex items-center justify-between gap-4 md:block md:text-right">
+              <p className="text-xs text-white/40 md:text-sm">Order Total</p>
+              <div className="flex items-baseline gap-2 md:block">
+                <p className="font-heading text-2xl font-bold text-white md:text-3xl">${(order.totalAmount / 100).toFixed(2)}</p>
+                <p className="text-xs text-white/40 md:text-sm">{itemCount} item{itemCount !== 1 ? 's' : ''}</p>
+              </div>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Customer & Shipping */}
-        <Card>
-          <CardHeader className="pb-3">
+      <div className="grid gap-4 md:gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {/* Customer */}
+        <Card className="overflow-hidden">
+          <CardHeader className="px-4 pb-3 md:px-6">
             <CardTitle className="flex items-center gap-2 text-base">
               <User className="h-4 w-4 text-white/40" />
               Customer
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <dl className="space-y-3 text-sm">
+          <CardContent className="min-w-0 overflow-hidden px-4 md:px-6">
+            <dl className="min-w-0 space-y-3 text-sm">
               <div>
                 <dt className="text-white/40">Name</dt>
                 <dd className="mt-0.5 text-white">{order.customerName || 'Not provided'}</dd>
@@ -209,21 +234,26 @@ const Success = ({ adminOrder: order }: CellSuccessProps) => {
               )}
               <div>
                 <dt className="text-white/40">Stripe Session</dt>
-                <dd className="mt-0.5 max-w-full truncate font-mono text-xs text-white/30">{order.stripeSessionId}</dd>
+                <dd className="mt-0.5 truncate font-mono text-xs text-white/30">{order.stripeSessionId}</dd>
               </div>
             </dl>
           </CardContent>
         </Card>
 
+        {/* Delivery / Address */}
         <Card>
-          <CardHeader className="pb-3">
+          <CardHeader className="px-4 pb-3 md:px-6">
             <CardTitle className="flex items-center gap-2 text-base">
               <MapPin className="h-4 w-4 text-white/40" />
-              Shipping Address
+              {isPickup ? 'Delivery' : 'Shipping Address'}
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            {address ? (
+          <CardContent className="px-4 md:px-6">
+            {isPickup ? (
+              <div className="rounded border border-gold/20 bg-gold/5 px-3 py-2 text-sm text-gold">
+                Pickup from Track
+              </div>
+            ) : address ? (
               <div className="text-sm text-white/70">
                 <p>{address.line1}</p>
                 {address.line2 && <p>{address.line2}</p>}
@@ -232,6 +262,15 @@ const Success = ({ adminOrder: order }: CellSuccessProps) => {
               </div>
             ) : (
               <p className="text-sm text-white/30">No shipping address provided</p>
+            )}
+            {order.couponCode && (
+              <div className="mt-4 rounded border border-green-500/20 bg-green-500/5 p-3">
+                <div className="text-xs text-white/40">Coupon Applied</div>
+                <div className="mt-1 flex items-center justify-between">
+                  <span className="font-mono text-sm text-green-400">{order.couponCode}</span>
+                  <span className="text-sm text-green-400">-${(order.discountAmount / 100).toFixed(2)}</span>
+                </div>
+              </div>
             )}
             {order.trackingNumber && (
               <div className="mt-4 rounded border border-white/10 bg-white/[0.03] p-3">
@@ -252,14 +291,15 @@ const Success = ({ adminOrder: order }: CellSuccessProps) => {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
+        {/* Timeline */}
+        <Card className="md:col-span-2 lg:col-span-1">
+          <CardHeader className="px-4 pb-3 md:px-6">
             <CardTitle className="flex items-center gap-2 text-base">
               <Clock className="h-4 w-4 text-white/40" />
               Timeline
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-4 md:px-6">
             <div className="space-y-3 text-sm">
               <div className="flex items-start gap-3">
                 <div className="mt-0.5 h-2 w-2 rounded-full bg-white/20" />
@@ -275,6 +315,30 @@ const Success = ({ adminOrder: order }: CellSuccessProps) => {
                     <p className="text-white/70">Payment received</p>
                   </div>
                 </div>
+              )}
+              {order.status === 'ready_for_collection' && (
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 h-2 w-2 rounded-full bg-blue-500" />
+                  <div>
+                    <p className="text-white/70">Ready for collection</p>
+                  </div>
+                </div>
+              )}
+              {order.status === 'collected' && (
+                <>
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5 h-2 w-2 rounded-full bg-blue-500" />
+                    <div>
+                      <p className="text-white/70">Ready for collection</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5 h-2 w-2 rounded-full bg-emerald-500" />
+                    <div>
+                      <p className="text-white/70">Collected by customer</p>
+                    </div>
+                  </div>
+                </>
               )}
               {order.trackingNumber && (
                 <div className="flex items-start gap-3">
@@ -308,7 +372,7 @@ const Success = ({ adminOrder: order }: CellSuccessProps) => {
 
       {/* Items */}
       <Card>
-        <CardHeader>
+        <CardHeader className="px-4 md:px-6">
           <CardTitle className="flex items-center gap-2">
             <Package className="h-4 w-4 text-white/40" />
             Items
@@ -317,22 +381,22 @@ const Success = ({ adminOrder: order }: CellSuccessProps) => {
         <CardContent className="p-0">
           <div className="divide-y divide-white/5">
             {order.items.map((item) => (
-              <div key={item.id} className="flex items-center gap-4 px-6 py-4">
+              <div key={item.id} className="flex items-center gap-3 px-4 py-3 md:gap-4 md:px-6 md:py-4">
                 <img
                   src={item.product.imageUrl}
                   alt={item.product.name}
-                  className="h-16 w-16 flex-shrink-0 rounded-lg object-cover"
+                  className="h-12 w-12 flex-shrink-0 rounded-lg object-cover md:h-16 md:w-16"
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium text-white">{item.product.name}</p>
-                  <div className="mt-0.5 flex gap-3 text-xs text-white/40">
+                  <p className="truncate text-sm font-medium text-white">{item.product.name}</p>
+                  <div className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-white/40">
                     <span>{item.product.category}</span>
                     {item.size && <span>Size: {item.size}</span>}
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm text-white/40">x{item.quantity}</p>
-                  <p className="font-medium text-white">${(item.price * item.quantity / 100).toFixed(2)}</p>
+                <div className="flex-shrink-0 text-right">
+                  <p className="text-xs text-white/40 md:text-sm">x{item.quantity}</p>
+                  <p className="text-sm font-medium text-white">${(item.price * item.quantity / 100).toFixed(2)}</p>
                   {item.quantity > 1 && (
                     <p className="text-xs text-white/30">${(item.price / 100).toFixed(2)} each</p>
                   )}
@@ -340,7 +404,7 @@ const Success = ({ adminOrder: order }: CellSuccessProps) => {
               </div>
             ))}
           </div>
-          <div className="border-t border-white/10 px-6 py-4">
+          <div className="border-t border-white/10 px-4 py-3 md:px-6 md:py-4">
             <div className="flex justify-between">
               <span className="font-medium text-white/50">Total</span>
               <span className="font-heading text-lg font-bold text-white">${(order.totalAmount / 100).toFixed(2)}</span>
@@ -349,47 +413,163 @@ const Success = ({ adminOrder: order }: CellSuccessProps) => {
         </CardContent>
       </Card>
 
-      {/* Actions */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Ship order */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Truck className="h-4 w-4 text-white/40" />
-              Ship Order
-            </CardTitle>
-            <CardDescription>Enter a tracking number to mark as shipped</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex gap-3">
-              <div className="flex-1">
-                <Input
-                  placeholder="e.g. AP123456789AU"
-                  value={trackingInput}
-                  onChange={(e) => setTrackingInput(e.target.value)}
-                  disabled={order.status === 'refunded' || order.status === 'cancelled'}
-                />
-              </div>
-              <Button
-                onClick={handleShip}
-                disabled={shipping || order.status === 'refunded' || order.status === 'cancelled'}
-              >
-                {shipping ? 'Shipping...' : order.trackingNumber ? 'Update' : 'Mark Shipped'}
-              </Button>
+      {/* Order Progress + Actions */}
+      <Card>
+        <CardHeader className="px-4 md:px-6">
+          <CardTitle className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-white/40" />
+            Order Progress
+          </CardTitle>
+          <CardDescription>
+            {isTerminal
+              ? `This order has been ${order.status}.`
+              : isPickup
+                ? 'Track and update pickup order status'
+                : 'Track and update shipping order status'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="px-4 md:px-6">
+          {isTerminal ? (
+            <div className="rounded-lg border border-white/5 bg-white/[0.02] p-4 text-sm text-white/40">
+              Status is locked — this order has been {order.status}.
             </div>
-          </CardContent>
-        </Card>
+          ) : (
+            <>
+              {/* Step progress bar */}
+              <div className="mb-6 flex items-center gap-1">
+                {steps.map((step, i) => {
+                  const isComplete = i < currentStepIndex
+                  const isCurrent = i === currentStepIndex
+                  return (
+                    <div key={step.value} className="flex flex-1 items-center gap-1">
+                      <div className="flex-1">
+                        <div
+                          className={`h-1.5 rounded-full transition-colors ${
+                            isComplete || isCurrent ? step.color : 'bg-white/10'
+                          }`}
+                        />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Step buttons */}
+              <div className="space-y-2">
+                {steps.map((step, i) => {
+                  const isComplete = i < currentStepIndex
+                  const isCurrent = i === currentStepIndex
+                  const isNext = i === currentStepIndex + 1
+                  return (
+                    <button
+                      key={step.value}
+                      onClick={() => {
+                        if (!isCurrent) {
+                          updateStatus({ variables: { id: order.id, status: step.value } })
+                        }
+                      }}
+                      disabled={isCurrent || statusUpdating}
+                      className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-all md:gap-4 md:px-4 md:py-3 ${
+                        isCurrent
+                          ? `border-white/20 bg-white/[0.06] ring-2 ${step.ring}`
+                          : isNext
+                            ? 'border-white/10 bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.05]'
+                            : 'border-transparent bg-transparent hover:bg-white/[0.02]'
+                      } disabled:cursor-default`}
+                    >
+                      <div
+                        className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold md:h-7 md:w-7 ${
+                          isComplete
+                            ? `${step.color} text-white`
+                            : isCurrent
+                              ? `${step.color} text-white ring-4 ${step.ring}`
+                              : 'bg-white/10 text-white/30'
+                        }`}
+                      >
+                        {isComplete ? (
+                          <CheckCircle2 className="h-3.5 w-3.5 md:h-4 md:w-4" />
+                        ) : (
+                          i + 1
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className={`text-sm font-medium ${isCurrent || isComplete ? 'text-white' : 'text-white/40'}`}>
+                          {step.label}
+                        </p>
+                        <p className="hidden text-xs text-white/30 md:block">{step.desc}</p>
+                      </div>
+                      {isCurrent && (
+                        <Badge variant={sc.variant} className="flex-shrink-0">Current</Badge>
+                      )}
+                      {isNext && !statusUpdating && (
+                        <span className="hidden flex-shrink-0 text-xs text-white/30 sm:inline">Click to advance</span>
+                      )}
+                    </button>
+                  )
+                })}
+
+                {/* Cancel option */}
+                <button
+                  onClick={() => updateStatus({ variables: { id: order.id, status: 'cancelled' } })}
+                  disabled={statusUpdating}
+                  className="mt-2 flex w-full items-center gap-3 rounded-lg border border-transparent px-3 py-2.5 text-left text-white/30 transition-all hover:border-red-500/20 hover:bg-red-500/5 hover:text-red-400 md:gap-4 md:px-4 md:py-3"
+                >
+                  <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-white/5 text-xs md:h-7 md:w-7">
+                    ✕
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Cancel Order</p>
+                  </div>
+                </button>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Ship Order (only for shipping orders) + Refund */}
+      <div className={`grid gap-4 md:gap-6 ${!isPickup ? 'lg:grid-cols-2' : ''}`}>
+        {!isPickup && (
+          <Card>
+            <CardHeader className="px-4 md:px-6">
+              <CardTitle className="flex items-center gap-2">
+                <Truck className="h-4 w-4 text-white/40" />
+                Ship Order
+              </CardTitle>
+              <CardDescription>Enter a tracking number to mark as shipped</CardDescription>
+            </CardHeader>
+            <CardContent className="px-4 md:px-6">
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <div className="flex-1">
+                  <Input
+                    placeholder="e.g. AP123456789AU"
+                    value={trackingInput}
+                    onChange={(e) => setTrackingInput(e.target.value)}
+                    disabled={isTerminal}
+                  />
+                </div>
+                <Button
+                  className="w-full sm:w-auto"
+                  onClick={handleShip}
+                  disabled={shipping || isTerminal}
+                >
+                  {shipping ? 'Shipping...' : order.trackingNumber ? 'Update' : 'Mark Shipped'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Refund */}
         <Card>
-          <CardHeader>
+          <CardHeader className="px-4 md:px-6">
             <CardTitle className="flex items-center gap-2">
               <RotateCcw className="h-4 w-4 text-white/40" />
               Refund
             </CardTitle>
             <CardDescription>Issue a full refund via Stripe</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-4 md:px-6">
             {order.refundedAt ? (
               <p className="text-sm text-white/40">
                 This order was refunded on {new Date(order.refundedAt).toLocaleString()}.
@@ -448,74 +628,30 @@ const Success = ({ adminOrder: order }: CellSuccessProps) => {
         </Card>
       </div>
 
-      {/* Notes + Status */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <StickyNote className="h-4 w-4 text-white/40" />
-              Internal Notes
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Textarea
-              value={noteInput}
-              onChange={(e) => setNoteInput(e.target.value)}
-              placeholder="Add internal notes about this order..."
-              rows={3}
-            />
-            <Button
-              className="mt-3"
-              size="sm"
-              onClick={() => addNote({ variables: { id: order.id, notes: noteInput } })}
-            >
-              Save Note
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Hash className="h-4 w-4 text-white/40" />
-              Update Status
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {order.status === 'refunded' ? (
-              <p className="text-sm text-white/40">Status is locked — order has been refunded.</p>
-            ) : (
-              <div className="space-y-1">
-                {[
-                  { value: 'pending', label: 'Pending', desc: 'Awaiting payment', dot: 'bg-yellow-500' },
-                  { value: 'paid', label: 'Paid', desc: 'Payment received', dot: 'bg-green-500' },
-                  { value: 'shipped', label: 'Shipped', desc: 'Dispatched to customer', dot: 'bg-blue-500' },
-                  { value: 'cancelled', label: 'Cancelled', desc: 'Order cancelled', dot: 'bg-red-500' },
-                ].map((s) => (
-                  <button
-                    key={s.value}
-                    onClick={() => updateStatus({ variables: { id: order.id, status: s.value } })}
-                    className={`flex w-full items-center gap-3 rounded px-3 py-2.5 text-left text-sm transition-colors ${
-                      order.status === s.value
-                        ? 'bg-white/10 text-white'
-                        : 'text-white/50 hover:bg-white/5 hover:text-white/70'
-                    }`}
-                  >
-                    <div className={`h-2 w-2 flex-shrink-0 rounded-full ${s.dot}`} />
-                    <div className="flex-1">
-                      <span className="font-medium">{s.label}</span>
-                      <span className="ml-2 text-xs text-white/30">{s.desc}</span>
-                    </div>
-                    {order.status === s.value && (
-                      <span className="text-xs text-white/30">Current</span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      {/* Notes */}
+      <Card>
+        <CardHeader className="px-4 md:px-6">
+          <CardTitle className="flex items-center gap-2">
+            <StickyNote className="h-4 w-4 text-white/40" />
+            Internal Notes
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="px-4 md:px-6">
+          <Textarea
+            value={noteInput}
+            onChange={(e) => setNoteInput(e.target.value)}
+            placeholder="Add internal notes about this order..."
+            rows={3}
+          />
+          <Button
+            className="mt-3"
+            size="sm"
+            onClick={() => addNote({ variables: { id: order.id, notes: noteInput } })}
+          >
+            Save Note
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   )
 }

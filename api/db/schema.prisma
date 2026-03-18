@@ -64,6 +64,19 @@ model ProductVariant {
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
+model Coupon {
+  id             Int       @id @default(autoincrement())
+  code           String    @unique
+  discountType   String // "percentage" | "fixed" | "free_shipping"
+  discountValue  Int       @default(0)
+  minOrderAmount Int       @default(0)
+  maxUses        Int?
+  usedCount      Int       @default(0)
+  expiresAt      DateTime?
+  active         Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+}
+
 model Order {
   id               Int         @id @default(autoincrement())
   stripeSessionId  String      @unique
@@ -76,6 +89,9 @@ model Order {
   trackingNumber   String?
   refundedAt       DateTime?
   notes            String?
+  couponCode       String?
+  discountAmount   Int         @default(0)
+  deliveryMethod   String      @default("shipping")
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
   items            OrderItem[]

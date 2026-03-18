@@ -13,6 +13,6 @@ export const schema = gql`
   }
 
   type Query {
-    calculateShipping(country: String!, items: [ShippingItemInput!]!): ShippingQuote! @skipAuth
+    calculateShipping(country: String!, items: [ShippingItemInput!]!, deliveryMethod: String): ShippingQuote! @skipAuth
   }
 `

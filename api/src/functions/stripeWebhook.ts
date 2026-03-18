@@ -85,6 +85,9 @@ export const handler = async (event: APIGatewayEvent) => {
         customerEmail,
         totalAmount: order.totalAmount,
         shippingAddress: order.shippingAddress,
+        deliveryMethod: order.deliveryMethod,
+        couponCode: order.couponCode,
+        discountAmount: order.discountAmount,
         items: order.items.map((item) => ({
           name: item.product.name,
           quantity: item.quantity,

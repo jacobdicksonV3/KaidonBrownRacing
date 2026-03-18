@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { ReactNode } from 'react'
 
 import { Link, routes, useMatch } from '@cedarjs/router'
-import { LayoutDashboard, Package, ShoppingCart, Mail, Settings, LogOut, ChevronLeft, Menu, X } from 'lucide-react'
+import { LayoutDashboard, Package, ShoppingCart, Mail, Settings, LogOut, ChevronLeft, Menu, X, Tag } from 'lucide-react'
 
 import { useAuth } from 'src/auth'
 import { cn } from 'src/lib/utils'
@@ -11,6 +11,7 @@ const navItems = [
   { label: 'Dashboard', to: 'adminDashboard', icon: LayoutDashboard },
   { label: 'Orders', to: 'adminOrders', icon: ShoppingCart },
   { label: 'Products', to: 'adminProducts', icon: Package },
+  { label: 'Coupons', to: 'adminCoupons', icon: Tag },
   { label: 'Messages', to: 'adminContactMessages', icon: Mail },
   { label: 'Settings', to: 'adminSettings', icon: Settings },
 ] as const

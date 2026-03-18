@@ -21,9 +21,12 @@ export const schema = gql`
 
   input CheckoutInput {
     items: [CheckoutItemInput!]!
-    shippingAddress: ShippingAddressInput!
+    shippingAddress: ShippingAddressInput
+    customerName: String!
     customerEmail: String!
     customerPhone: String
+    couponCode: String
+    deliveryMethod: String
   }
 
   type Mutation {
