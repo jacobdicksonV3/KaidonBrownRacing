@@ -147,7 +147,7 @@ export const Success = ({ product }: CellSuccessProps<FindProductQuery, FindProd
       <Toaster />
       <div className="mx-auto max-w-5xl px-4 py-8 md:py-12">
         <div className="grid gap-6 md:grid-cols-2 md:gap-8">
-          <div>
+          <div className="min-w-0">
             <div className="overflow-hidden rounded-lg">
               <img
                 src={allImages[activeImageIdx]?.url || product.imageUrl}
@@ -156,7 +156,7 @@ export const Success = ({ product }: CellSuccessProps<FindProductQuery, FindProd
               />
             </div>
             {allImages.length > 1 && (
-              <div className="mt-3 flex gap-2 overflow-x-auto">
+              <div className="mt-3 flex gap-2 overflow-x-auto pb-2">
                 {allImages.map((img, idx) => (
                   <button
                     key={idx}
