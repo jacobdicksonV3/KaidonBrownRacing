@@ -36,11 +36,13 @@ const statusConfig: Record<string, { variant: 'success' | 'warning' | 'destructi
   pending: { variant: 'warning', label: 'Pending' },
   paid: { variant: 'success', label: 'Paid' },
   shipped: { variant: 'default', label: 'Shipped' },
+  ready_for_collection: { variant: 'default', label: 'Ready' },
+  collected: { variant: 'success', label: 'Collected' },
   refunded: { variant: 'destructive', label: 'Refunded' },
   cancelled: { variant: 'destructive', label: 'Cancelled' },
 }
 
-const statuses = ['all', 'paid', 'shipped', 'refunded', 'cancelled'] as const
+const statuses = ['all', 'paid', 'shipped', 'ready_for_collection', 'collected', 'refunded', 'cancelled'] as const
 
 const Loading = () => (
   <div className="space-y-3">
@@ -97,13 +99,13 @@ const Success = ({ adminOrders: orders }: CellSuccessProps) => {
               <button
                 key={s}
                 onClick={() => setStatusFilter(s)}
-                className={`rounded px-3 py-1.5 text-xs font-medium capitalize transition-colors ${
+                className={`rounded px-3 py-1.5 text-xs font-medium transition-colors ${
                   active
                     ? 'bg-white/10 text-white'
                     : 'text-white/40 hover:bg-white/5 hover:text-white/60'
                 }`}
               >
-                {s === 'all' ? 'All' : s}
+                {s === 'all' ? 'All' : (statusConfig[s]?.label || s)}
                 <span className={`ml-1.5 ${active ? 'text-white/50' : 'text-white/20'}`}>
                   {count}
                 </span>

@@ -11,7 +11,18 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 export const createCheckoutSession: MutationResolvers['createCheckoutSession'] = async ({
   input,
 }) => {
-  const { items, shippingAddress, customerEmail, customerPhone } = input
+  const {
+    items,
+    shippingAddress,
+    customerName,
+    customerEmail,
+    customerPhone,
+    couponCode,
+    deliveryMethod: rawDeliveryMethod,
+  } = input
+  const deliveryMethod = rawDeliveryMethod || 'shipping'
+  const isPickup = deliveryMethod === 'pickup'
+
   const productIds = items.map((i) => i.productId)
   const products = await db.product.findMany({
     where: { id: { in: productIds } },
@@ -42,39 +53,122 @@ export const createCheckoutSession: MutationResolvers['createCheckoutSession'] =
   })
 
   // Calculate shipping
-  const rates = await getShippingRates()
-  const isInternational = shippingAddress.country.toUpperCase() !== 'AU'
-  const baseRate = isInternational ? rates.intl : rates.au
+  let shippingTotal = 0
+  let isInternational = false
 
-  let surcharges = 0
-  for (const item of items) {
-    const product = products.find((p) => p.id === item.productId)
-    if (product && product.shippingSurcharge > 0) {
-      surcharges += product.shippingSurcharge * item.quantity
+  if (isPickup) {
+    // No shipping for pickup
+    lineItems.push({
+      price_data: {
+        currency: 'aud',
+        product_data: { name: 'Pickup from Track' },
+        unit_amount: 0,
+      },
+      quantity: 1,
+    })
+  } else {
+    const rates = await getShippingRates()
+    isInternational = shippingAddress
+      ? shippingAddress.country.toUpperCase() !== 'AU'
+      : false
+    const baseRate = isInternational ? rates.intl : rates.au
+
+    let surcharges = 0
+    for (const item of items) {
+      const product = products.find((p) => p.id === item.productId)
+      if (product && product.shippingSurcharge > 0) {
+        surcharges += product.shippingSurcharge * item.quantity
+      }
     }
+
+    shippingTotal = baseRate + surcharges
+
+    lineItems.push({
+      price_data: {
+        currency: 'aud',
+        product_data: {
+          name: `Shipping (${isInternational ? 'International' : 'Australia'})`,
+        },
+        unit_amount: shippingTotal,
+      },
+      quantity: 1,
+    })
   }
 
-  const shippingTotal = baseRate + surcharges
+  // Validate and apply coupon
+  let coupon = null
+  let discountAmount = 0
+  let stripeCouponId: string | undefined
 
-  // Add shipping as a line item
-  lineItems.push({
-    price_data: {
-      currency: 'aud',
-      product_data: {
-        name: `Shipping (${isInternational ? 'International' : 'Australia'})`,
-      },
-      unit_amount: shippingTotal,
-    },
-    quantity: 1,
-  })
+  if (couponCode) {
+    coupon = await db.coupon.findUnique({
+      where: { code: couponCode.toUpperCase() },
+    })
+
+    if (!coupon || !coupon.active) {
+      throw new Error('Invalid coupon code')
+    }
+
+    if (coupon.expiresAt && new Date(coupon.expiresAt) < new Date()) {
+      throw new Error('This coupon has expired')
+    }
+
+    if (coupon.maxUses !== null && coupon.usedCount >= coupon.maxUses) {
+      throw new Error('This coupon has reached its usage limit')
+    }
+
+    const productTotal = items.reduce((sum, item) => {
+      const product = products.find((p) => p.id === item.productId)!
+      return sum + product.price * item.quantity
+    }, 0)
+
+    if (productTotal < coupon.minOrderAmount) {
+      throw new Error(
+        `Minimum order of $${(coupon.minOrderAmount / 100).toFixed(2)} required`
+      )
+    }
+
+    if (coupon.discountType === 'free_shipping') {
+      // Zero out the shipping line item
+      discountAmount = shippingTotal
+      const shippingLineItem = lineItems[lineItems.length - 1]
+      shippingLineItem.price_data!.unit_amount = 0
+      shippingLineItem.price_data!.product_data!.name = 'Shipping (Free — coupon applied)'
+      shippingTotal = 0
+    } else if (coupon.discountType === 'percentage') {
+      // Create a Stripe coupon for percentage discount
+      const stripeCoupon = await stripe.coupons.create({
+        percent_off: coupon.discountValue,
+        duration: 'once',
+        name: `${coupon.code} — ${coupon.discountValue}% off`,
+      })
+      stripeCouponId = stripeCoupon.id
+      discountAmount = Math.round((productTotal * coupon.discountValue) / 100)
+    } else if (coupon.discountType === 'fixed') {
+      const stripeCoupon = await stripe.coupons.create({
+        amount_off: Math.min(coupon.discountValue, productTotal),
+        currency: 'aud',
+        duration: 'once',
+        name: `${coupon.code} — $${(coupon.discountValue / 100).toFixed(2)} off`,
+      })
+      stripeCouponId = stripeCoupon.id
+      discountAmount = Math.min(coupon.discountValue, productTotal)
+    }
+
+    // Increment usage
+    await db.coupon.update({
+      where: { id: coupon.id },
+      data: { usedCount: { increment: 1 } },
+    })
+  }
 
   const productTotal = items.reduce((sum, item) => {
     const product = products.find((p) => p.id === item.productId)!
     return sum + product.price * item.quantity
   }, 0)
-  const totalAmount = productTotal + shippingTotal
+  const totalAmount = productTotal + shippingTotal - discountAmount
 
-  const session = await stripe.checkout.sessions.create({
+  const sessionParams: Stripe.Checkout.SessionCreateParams = {
     payment_method_types: ['card'],
     line_items: lineItems,
     mode: 'payment',
@@ -82,24 +176,37 @@ export const createCheckoutSession: MutationResolvers['createCheckoutSession'] =
     phone_number_collection: { enabled: false },
     success_url: `${webUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${webUrl}/cart`,
-  })
+  }
+
+  if (stripeCouponId) {
+    sessionParams.discounts = [{ coupon: stripeCouponId }]
+  }
+
+  const session = await stripe.checkout.sessions.create(sessionParams)
 
   await db.order.create({
     data: {
       stripeSessionId: session.id,
-      customerName: shippingAddress.name,
+      customerName,
       customerEmail,
       customerPhone: customerPhone || '',
       status: 'pending',
       totalAmount,
-      shippingAddress: JSON.stringify({
-        line1: shippingAddress.line1,
-        line2: shippingAddress.line2,
-        city: shippingAddress.city,
-        state: shippingAddress.state,
-        postal_code: shippingAddress.postalCode,
-        country: shippingAddress.country,
-      }),
+      couponCode: coupon ? coupon.code : null,
+      discountAmount,
+      deliveryMethod,
+      shippingAddress: isPickup
+        ? null
+        : shippingAddress
+          ? JSON.stringify({
+              line1: shippingAddress.line1,
+              line2: shippingAddress.line2,
+              city: shippingAddress.city,
+              state: shippingAddress.state,
+              postal_code: shippingAddress.postalCode,
+              country: shippingAddress.country,
+            })
+          : null,
       items: {
         create: items.map((item) => {
           const product = products.find((p) => p.id === item.productId)!
